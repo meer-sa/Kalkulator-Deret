@@ -1,0 +1,865 @@
+<title>Kalkulator Deret</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: kertas coretan ujian berpetak, satu kolom. Hasil ditulis seperti pengerjaan di kertas: jawaban distabilo, langkah, lalu tabel selisih. */
+:root {
+  --bg: #EEF2F8;
+  --grid: #DAE2EF;
+  --card: #FFFFFF;
+  --ink: #142039;
+  --muted: #56637F;
+  --line: #C9D4E6;
+  --accent: #2347E8;
+  --accent-ink: #FFFFFF;
+  --soft: #E5ECFB;
+  --mark: #FFE066;
+  --warn: #B3261E;
+  --sans: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1424; --grid: #1A2338; --card: #151D31; --ink: #E7ECF8; --muted: #9AA7C7;
+    --line: #2A3556; --accent: #8CA2FF; --accent-ink: #0E1424; --soft: #1E2949; --mark: #7A6300; --warn: #FF8A80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1424; --grid: #1A2338; --card: #151D31; --ink: #E7ECF8; --muted: #9AA7C7;
+  --line: #2A3556; --accent: #8CA2FF; --accent-ink: #0E1424; --soft: #1E2949; --mark: #7A6300; --warn: #FF8A80;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+main { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+header h1 { font-size: clamp(1.6rem, 5vw, 2.1rem); line-height: 1.15; margin: 0 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 60ch; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 18px; min-width: 0; }
+label.lbl, .label { display: block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > input { flex: 1 1 220px; min-width: 0; }
+input[type="text"] {
+  font-family: var(--mono); font-size: 1.1rem; font-weight: 500;
+  padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 6px;
+  background: var(--bg); color: var(--ink);
+}
+input[type="text"]:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button { font-family: var(--sans); font-size: 1rem; cursor: pointer; }
+.go { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 12px 22px; font-weight: 600; }
+.go:hover { filter: brightness(1.08); }
+.hint { margin: 8px 0 0; font-size: 0.875rem; color: var(--muted); }
+.hint code, .rule code { font-family: var(--mono); background: var(--soft); padding: 1px 6px; border-radius: 4px; }
+
+.opts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.opts .label { margin: 0; }
+.seg { display: inline-flex; border: 1.5px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { background: transparent; color: var(--ink); border: 0; padding: 6px 14px; font-weight: 500; }
+.seg button + button { border-left: 1.5px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.chip { background: var(--soft); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-family: var(--mono); font-size: 0.85rem; }
+.chip:hover { border-color: var(--accent); }
+
+.answer { font-family: var(--mono); font-weight: 700; font-size: clamp(2rem, 9vw, 2.8rem); line-height: 1.25; margin: 0 0 6px; overflow-wrap: anywhere; }
+.ans { background: linear-gradient(transparent 58%, var(--mark) 58%); padding: 0 4px; }
+.more { font-size: 0.5em; font-weight: 500; color: var(--muted); }
+.filled { font-family: var(--mono); margin: 0 0 12px; overflow-wrap: anywhere; }
+.filled b { background: linear-gradient(transparent 58%, var(--mark) 58%); }
+.rule { margin: 0 0 4px; }
+.rule strong { font-weight: 600; }
+.also { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); }
+h2 { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 6px; }
+ol.steps { margin: 0; padding-left: 22px; }
+ol.steps li { margin: 4px 0; }
+ol.steps .m { font-family: var(--mono); font-size: 0.92em; }
+
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; font-family: var(--mono); font-size: 0.95rem; width: 100%; }
+th, td { padding: 6px 10px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+thead th { color: var(--muted); font-weight: 500; font-size: 0.78rem; border-bottom: 1px solid var(--line); }
+tbody th { text-align: left; font-family: var(--sans); font-weight: 500; color: var(--muted); font-size: 0.82rem; position: sticky; left: 0; background: var(--card); }
+tbody tr + tr td, tbody tr + tr th { border-top: 1px dashed var(--line); }
+td.d { color: var(--accent); }
+td.p { color: var(--accent); font-weight: 700; background: var(--soft); }
+td.e { padding: 0; }
+
+ul.alts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+ul.alts li { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; border-top: 1px dashed var(--line); padding-top: 8px; }
+ul.alts li:first-child { border-top: 0; padding-top: 0; }
+ul.alts .v { font-family: var(--mono); font-weight: 700; min-width: 4ch; }
+ul.alts .n { color: var(--muted); font-size: 0.92rem; min-width: 0; }
+.note { margin: 10px 0 0; font-size: 0.875rem; color: var(--muted); }
+.err { color: var(--warn); margin: 0; font-weight: 500; }
+.none { margin: 0; }
+.opts.top { margin: 0 0 14px; }
+.alpha { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 4px; }
+.al { display: flex; flex-direction: column; align-items: center; border: 1px solid var(--line); border-radius: 4px; padding: 3px 0; font-family: var(--mono); line-height: 1.25; min-width: 0; }
+.al b { font-size: 0.85rem; }
+.al i { font-style: normal; font-size: 0.68rem; color: var(--muted); }
+.al.hit { background: var(--mark); border-color: var(--ink); }
+.al.hit i { color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) { .go { transition: filter .15s; } }
+</style>
+
+<main>
+  <header>
+    <h1>Kalkulator Deret</h1>
+    <p>Ketik deret angka atau huruf seperti di soal TPA, psikotes, atau tes seleksi. Kalkulator mencari polanya, menampilkan langkah pengerjaan, dan menghitung suku berikutnya atau yang hilang.</p>
+  </header>
+
+  <form class="card" id="form" autocomplete="off">
+    <div class="opts top">
+      <span class="label" id="mlabel">Jenis deret</span>
+      <div class="seg" role="group" aria-labelledby="mlabel" id="mseg">
+        <button type="button" data-m="num" aria-pressed="true">Angka</button>
+        <button type="button" data-m="let" aria-pressed="false">Huruf</button>
+      </div>
+    </div>
+    <label class="lbl" for="seq">Deret</label>
+    <div class="row">
+      <input type="text" id="seq" inputmode="text" spellcheck="false" value="2, 6, 12, 20, 30, ?" aria-describedby="hint">
+      <button class="go" type="submit">Hitung</button>
+    </div>
+    <p class="hint" id="hint">Pisahkan dengan koma atau spasi. Tulis <code>?</code> untuk angka yang dicari, di tengah atau di akhir.</p>
+    <div class="opts">
+      <span class="label" id="klabel">Suku berikutnya</span>
+      <div class="seg" role="group" aria-labelledby="klabel" id="kseg">
+        <button type="button" data-k="1" aria-pressed="false">1</button>
+        <button type="button" data-k="3" aria-pressed="true">3</button>
+        <button type="button" data-k="5" aria-pressed="false">5</button>
+      </div>
+    </div>
+    <div class="chips" id="chips" aria-label="Contoh soal"></div>
+  </form>
+
+  <div id="out" aria-live="polite"></div>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var EPS = 1e-9;
+  var eq = function (a, b) { return Math.abs(a - b) <= EPS * Math.max(1, Math.abs(a), Math.abs(b)); };
+  var isInt = function (x) { return Math.abs(x - Math.round(x)) < 1e-9; };
+  function fmt(n) {
+    if (n < 0 && !eq(n, 0)) return '−' + fmt(-n);
+    if (isInt(n)) return String(Math.round(n));
+    return String(+n.toFixed(4));
+  }
+  var sgn = function (n) { return (n < 0 && !eq(n, 0)) ? '−' + fmt(-n) : '+' + fmt(n); };
+  function opText(t, v) {
+    if (t === '+') return (v < 0 && !eq(v, 0)) ? '− ' + fmt(-v) : '+ ' + fmt(v);
+    if (Math.abs(v) < 1 && v !== 0 && isInt(1 / v)) return '÷ ' + fmt(1 / v);
+    return '× ' + fmt(v);
+  }
+  var diffs = function (a) { return a.slice(1).map(function (v, i) { return v - a[i]; }); };
+  var allEq = function (a) { return a.every(function (v) { return eq(v, a[0]); }); };
+  var list = function (a) { return a.map(fmt).join(', '); };
+
+  /* ---------- bilangan prima ---------- */
+  var PR = [], PIDX = {};
+  (function () {
+    var lim = 30000, sv = new Uint8Array(lim + 1);
+    for (var i = 2; i <= lim; i++) {
+      if (!sv[i]) { PIDX[i] = PR.length; PR.push(i); for (var j = i * i; j <= lim; j += i) sv[j] = 1; }
+    }
+  })();
+  function mkPrimes(min) {
+    return function (s) {
+      if (s.length < min) return null;
+      if (!s.every(function (v) { return isInt(v) && v >= 2; })) return null;
+      var i0 = PIDX[s[0]];
+      if (i0 === undefined) return null;
+      for (var i = 0; i < s.length; i++) if (PR[i0 + i] !== s[i]) return null;
+      return {
+        name: 'Bilangan prima berurutan', short: 'prima berurutan', rule: 'Daftar bilangan prima',
+        steps: ['Semua suku adalah bilangan prima yang berurutan: ' + list(s) + '.', 'Prima setelah ' + fmt(s[s.length - 1]) + ' adalah ' + PR[i0 + s.length] + '.'],
+        ext: function (k) { return PR.slice(i0 + s.length, i0 + s.length + k); }
+      };
+    };
+  }
+
+  /* ---------- detektor pola ---------- */
+  function dArith(s) {
+    if (s.length < 3) return null;
+    var d = diffs(s);
+    if (!allEq(d)) return null;
+    var c = d[0], last = s[s.length - 1];
+    return {
+      name: eq(c, 0) ? 'Angka tetap' : 'Deret aritmetika (beda tetap)', short: sgn(c),
+      rule: 'Un = Un−1 ' + opText('+', c),
+      steps: ['Selisih antar suku: ' + d.map(sgn).join(', ') + '.',
+        'Selisihnya selalu ' + sgn(c) + ', jadi tiap suku ' + (c < 0 ? 'berkurang ' : 'bertambah ') + fmt(Math.abs(c)) + '.',
+        'Suku berikutnya: ' + fmt(last) + ' ' + opText('+', c) + ' = ' + fmt(last + c) + '.'],
+      ext: function (k) { var o = []; for (var i = 1; i <= k; i++) o.push(last + c * i); return o; }
+    };
+  }
+  function dGeom(s) {
+    if (s.length < 3 || s.some(function (v) { return eq(v, 0); })) return null;
+    var r = s[1] / s[0];
+    if (eq(r, 1)) return null;
+    for (var i = 0; i < s.length - 1; i++) if (!eq(s[i + 1], s[i] * r)) return null;
+    var last = s[s.length - 1];
+    return {
+      name: 'Deret geometri (rasio tetap)', short: opText('*', r),
+      rule: 'Un = Un−1 ' + opText('*', r),
+      steps: ['Bandingkan tiap suku dengan suku sebelumnya: selalu ' + opText('*', r) + '.',
+        'Suku berikutnya: ' + fmt(last) + ' ' + opText('*', r) + ' = ' + fmt(last * r) + '.'],
+      ext: function (k) { var o = [], v = last; for (var i = 0; i < k; i++) { v *= r; o.push(v); } return o; }
+    };
+  }
+  function dPoly(order) {
+    return function (s) {
+      if (s.length < order + 2) return null;
+      var L = [s];
+      for (var i = 0; i < order; i++) L.push(diffs(L[i]));
+      var top = L[order];
+      if (top.length < 2 || !allEq(top) || eq(top[0], 0)) return null;
+      var c = top[0], steps = [];
+      for (var j = 1; j <= order; j++) steps.push('Selisih tingkat ' + j + ': ' + L[j].map(function (v) { return j === order ? sgn(v) : fmt(v); }).join(', ') + '.');
+      steps.push('Selisih tingkat ' + order + ' selalu ' + fmt(c) + ' (tetap), jadi selisih di bawahnya naik ' + fmt(c) + ' tiap langkah' + (order > 2 ? ' dan seterusnya.' : '.'));
+      var res = {
+        name: 'Selisih bertingkat (tingkat ' + order + ' tetap)', short: 'selisih bertingkat',
+        rule: 'Selisih tingkat ' + order + ' = ' + fmt(c),
+        steps: steps,
+        ext: function (k) {
+          var M = L.map(function (l) { return l.slice(); }), out = [];
+          for (var t = 0; t < k; t++) {
+            M[order].push(c);
+            for (var q = order - 1; q >= 0; q--) M[q].push(M[q][M[q].length - 1] + M[q + 1][M[q + 1].length - 1]);
+            out.push(M[0][M[0].length - 1]);
+          }
+          return out;
+        }
+      };
+      if (order === 2) {
+        var nd = L[1][L[1].length - 1] + c, last = s[s.length - 1];
+        res.steps.push('Selisih berikutnya ' + fmt(nd) + ', maka ' + fmt(last) + ' + ' + fmt(nd) + ' = ' + fmt(last + nd) + '.');
+      }
+      return res;
+    };
+  }
+  function dDiffGeom(s) {
+    if (s.length < 4) return null;
+    var d = diffs(s);
+    if (d.some(function (v) { return eq(v, 0); })) return null;
+    var r = d[1] / d[0];
+    if (eq(r, 1)) return null;
+    for (var i = 0; i < d.length - 1; i++) if (!eq(d[i + 1], d[i] * r)) return null;
+    return {
+      name: 'Selisih membentuk deret geometri', short: 'selisih geometri',
+      rule: 'Selisih tiap langkah ' + opText('*', r),
+      steps: ['Selisih antar suku: ' + d.map(fmt).join(', ') + '.', 'Selisihnya sendiri berpola ' + opText('*', r) + ' tiap langkah.',
+        'Selisih berikutnya ' + fmt(d[d.length - 1] * r) + '.'],
+      ext: function (k) { var o = [], ld = d[d.length - 1], v = s[s.length - 1]; for (var i = 0; i < k; i++) { ld *= r; v += ld; o.push(v); } return o; }
+    };
+  }
+  function dRatioArith(s) {
+    if (s.length < 4 || s.some(function (v) { return eq(v, 0); })) return null;
+    var q = s.slice(1).map(function (v, i) { return v / s[i]; });
+    var dq = diffs(q);
+    if (!allEq(dq) || eq(dq[0], 0)) return null;
+    return {
+      name: 'Pengali naik teratur', short: 'pengali naik',
+      rule: 'Pengali bertambah ' + fmt(dq[0]) + ' tiap langkah',
+      steps: ['Pengali antar suku: ' + q.map(function (v) { return '×' + fmt(v); }).join(', ') + '.',
+        'Pengalinya naik ' + fmt(dq[0]) + ' tiap langkah, jadi pengali berikutnya ×' + fmt(q[q.length - 1] + dq[0]) + '.'],
+      ext: function (k) { var o = [], lq = q[q.length - 1], v = s[s.length - 1]; for (var i = 0; i < k; i++) { lq += dq[0]; v *= lq; o.push(v); } return o; }
+    };
+  }
+  function dFib(s) {
+    if (s.length < 4) return null;
+    for (var i = 2; i < s.length; i++) if (!eq(s[i], s[i - 1] + s[i - 2])) return null;
+    var n = s.length;
+    return {
+      name: 'Pola Fibonacci', short: 'jumlah dua suku',
+      rule: 'Un = Un−1 + Un−2',
+      steps: ['Tiap suku adalah jumlah dua suku sebelumnya.', fmt(s[0]) + ' + ' + fmt(s[1]) + ' = ' + fmt(s[2]) + (s.length > 3 ? ', ' + fmt(s[1]) + ' + ' + fmt(s[2]) + ' = ' + fmt(s[3]) : '') + '.',
+        'Suku berikutnya: ' + fmt(s[n - 2]) + ' + ' + fmt(s[n - 1]) + ' = ' + fmt(s[n - 2] + s[n - 1]) + '.'],
+      ext: function (k) { var a = s[n - 2], b = s[n - 1], o = []; for (var i = 0; i < k; i++) { var c = a + b; o.push(c); a = b; b = c; } return o; }
+    };
+  }
+  function dTrib(s) {
+    if (s.length < 5) return null;
+    for (var i = 3; i < s.length; i++) if (!eq(s[i], s[i - 1] + s[i - 2] + s[i - 3])) return null;
+    var n = s.length;
+    return {
+      name: 'Jumlah tiga suku sebelumnya', short: 'jumlah tiga suku',
+      rule: 'Un = Un−1 + Un−2 + Un−3',
+      steps: ['Tiap suku adalah jumlah tiga suku sebelumnya.', fmt(s[0]) + ' + ' + fmt(s[1]) + ' + ' + fmt(s[2]) + ' = ' + fmt(s[3]) + '.'],
+      ext: function (k) { var a = s[n - 3], b = s[n - 2], c = s[n - 1], o = []; for (var i = 0; i < k; i++) { var d = a + b + c; o.push(d); a = b; b = c; c = d; } return o; }
+    };
+  }
+  function dLinRec(s) {
+    if (s.length < 4 || eq(s[1], s[0])) return null;
+    var a = (s[2] - s[1]) / (s[1] - s[0]), b = s[1] - a * s[0];
+    if (eq(a, 0) || eq(a, 1) || eq(b, 0)) return null;
+    for (var i = 0; i < s.length - 1; i++) if (!eq(s[i + 1], a * s[i] + b)) return null;
+    var last = s[s.length - 1];
+    var f = '× ' + fmt(a) + ' ' + (b < 0 ? '− ' + fmt(-b) : '+ ' + fmt(b));
+    return {
+      name: 'Kalikan lalu tambah (selang tetap)', short: f,
+      rule: 'Un = Un−1 ' + f,
+      steps: ['Tiap suku didapat dari suku sebelumnya: ' + f + '.', fmt(s[0]) + ' ' + f + ' = ' + fmt(s[1]) + '.',
+        'Suku berikutnya: ' + fmt(last) + ' ' + f + ' = ' + fmt(a * last + b) + '.'],
+      ext: function (k) { var o = [], v = last; for (var i = 0; i < k; i++) { v = a * v + b; o.push(v); } return o; }
+    };
+  }
+  function dAlt(s) {
+    if (s.length < 5) return null;
+    var ops = [];
+    for (var c = 0; c < 2; c++) {
+      var idx = [];
+      for (var i = c; i < s.length - 1; i += 2) idx.push(i);
+      if (idx.length < 2) return null;
+      var dd = idx.map(function (i) { return s[i + 1] - s[i]; });
+      if (allEq(dd)) { ops.push({ t: '+', v: dd[0] }); continue; }
+      if (idx.some(function (i) { return eq(s[i], 0); })) return null;
+      var rr = idx.map(function (i) { return s[i + 1] / s[i]; });
+      if (allEq(rr) && !eq(rr[0], 1)) ops.push({ t: '*', v: rr[0] }); else return null;
+    }
+    if (ops[0].t === ops[1].t && eq(ops[0].v, ops[1].v)) return null;
+    var n = s.length;
+    return {
+      name: 'Dua operasi bergantian', short: 'operasi bergantian',
+      rule: opText(ops[0].t, ops[0].v) + ' lalu ' + opText(ops[1].t, ops[1].v) + ', diulang',
+      steps: ['Langkah 1→2, 3→4, 5→6, … selalu ' + opText(ops[0].t, ops[0].v) + '.', 'Langkah 2→3, 4→5, 6→7, … selalu ' + opText(ops[1].t, ops[1].v) + '.',
+        'Dua operasi itu dipakai bergantian.'],
+      ext: function (k) {
+        var o = [], v = s[n - 1];
+        for (var i = 0; i < k; i++) { var op = ops[(n - 1 + i) % 2]; v = op.t === '+' ? v + op.v : v * op.v; o.push(v); }
+        return o;
+      }
+    };
+  }
+  var polyTwo = dPoly(2);
+  function subSimple(a) {
+    var f = [dArith, dGeom, polyTwo];
+    for (var i = 0; i < f.length; i++) { var r = f[i](a); if (r) return r; }
+    return null;
+  }
+  function dInter(s) {
+    if (s.length < 6) return null;
+    var A = s.filter(function (_, i) { return i % 2 === 0; }), B = s.filter(function (_, i) { return i % 2 === 1; });
+    var ra = subSimple(A), rb = subSimple(B);
+    if (!ra || !rb) return null;
+    return {
+      name: 'Dua deret bersilang', short: 'bersilang',
+      rule: 'Suku ganjil dan genap punya pola sendiri',
+      steps: ['Suku ke-1, 3, 5, …: ' + list(A) + ' → ' + ra.short + '.', 'Suku ke-2, 4, 6, …: ' + list(B) + ' → ' + rb.short + '.',
+        'Lanjutkan masing-masing deret, lalu selang-seling.'],
+      ext: function (k) {
+        var ea = ra.ext(k + 1), eb = rb.ext(k + 1), out = [];
+        for (var j = 0; j < k; j++) {
+          var i = s.length + j;
+          out.push(i % 2 === 0 ? ea[(i >> 1) - A.length] : eb[((i - 1) >> 1) - B.length]);
+        }
+        return out;
+      }
+    };
+  }
+  var rootPrimes = mkPrimes(3);
+  function dPowers(s) {
+    if (s.length < 3) return null;
+    for (var p = 2; p <= 3; p++) {
+      var roots = s.map(function (v) { return Math.round(Math.pow(v, 1 / p)); });
+      if (s.some(function (v, i) { return v <= 0 || !eq(Math.pow(roots[i], p), v); })) continue;
+      var fs = [dArith, dGeom, rootPrimes], r = null;
+      for (var i = 0; i < fs.length && !r; i++) r = fs[i](roots);
+      if (!r) continue;
+      var sup = p === 2 ? '²' : '³';
+      return {
+        name: p === 2 ? 'Bilangan kuadrat' : 'Bilangan kubik', short: 'pangkat ' + p,
+        rule: 'Un = (bilangan pokok)' + sup,
+        steps: ['Semua suku adalah ' + (p === 2 ? 'kuadrat' : 'kubik') + ': ' + s.map(function (v, i) { return fmt(v) + ' = ' + roots[i] + sup; }).join(', ') + '.',
+          'Bilangan pokoknya: ' + list(roots) + ' → ' + r.short + '.',
+          'Pokok berikutnya ' + r.ext(1)[0] + ', jadi ' + r.ext(1)[0] + sup + ' = ' + fmt(Math.pow(r.ext(1)[0], p)) + '.'],
+        ext: function (k) { return r.ext(k).map(function (x) { return Math.pow(x, p); }); }
+      };
+    }
+    return null;
+  }
+  var DET = [dArith, dGeom, dPowers, polyTwo, dPoly(3), dDiffGeom, dRatioArith, dFib, dTrib, mkPrimes(4), dLinRec, dAlt, dInter];
+
+  function analyze(s) {
+    var out = [];
+    for (var p = 0; p < DET.length; p++) {
+      var r = DET[p](s);
+      if (r) { r.pri = p; out.push(r); }
+    }
+    return out;
+  }
+  function firstMatch(s) {
+    for (var p = 0; p < DET.length; p++) {
+      var r = DET[p](s);
+      if (r) { r.pri = p; return r; }
+    }
+    return null;
+  }
+
+  /* ---------- input ---------- */
+  function parse(raw) {
+    var toks = raw.split(/[\s,;]+/).filter(Boolean), arr = [], unk = 0, pos = -1;
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i].replace(/−/g, '-');
+      if (/^[?_]$/.test(t) || /^x$/i.test(t)) { unk++; pos = i; arr.push(null); }
+      else if (/^[-+]?\d+(\.\d+)?$/.test(t)) arr.push(Number(t));
+      else return { error: 'Hanya angka dan satu tanda ? yang bisa dibaca. Periksa bagian "' + toks[i].replace(/[<>&]/g, '') + '".' };
+    }
+    if (unk > 1) return { error: 'Pakai satu tanda ? saja.' };
+    if (arr.length < 3) return { error: 'Masukkan minimal 3 suku.' };
+    if (unk === 0) return { s: arr, mode: 'next' };
+    if (pos === arr.length - 1) {
+      var known = arr.slice(0, -1);
+      if (known.length < 3) return { error: 'Untuk mencari suku berikutnya, tulis minimal 3 angka sebelum ?.' };
+      return { s: known, mode: 'next' };
+    }
+    return { s: arr, mode: 'missing', pos: pos };
+  }
+
+  function solveMissing(arr, pos) {
+    var known = arr.filter(function (v) { return v !== null; });
+    var m = Math.max.apply(null, [1].concat(known.map(Math.abs)));
+    var lo = Math.max(-Math.ceil(m * 10) - 50, -200000), hi = Math.min(Math.ceil(m * 50) + 50, 200000);
+    var seq = arr.slice(), found = [];
+    for (var x = lo; x <= hi; x++) {
+      seq[pos] = x;
+      var r = firstMatch(seq);
+      if (r) found.push({ x: x, res: r });
+    }
+    found.sort(function (a, b) { return a.res.pri - b.res.pri || Math.abs(a.x) - Math.abs(b.x); });
+    return found;
+  }
+
+  /* ---------- tampilan ---------- */
+  function table(full, nKnown, unkPos) {
+    var n = full.length;
+    var derived = function (i, j) { for (var t = i; t <= i + j; t++) if (t >= nKnown || t === unkPos) return true; return false; };
+    var head = '<tr><th scope="col"></th>' + full.map(function (_, i) { return '<th scope="col">' + (i + 1) + '</th>'; }).join('') + '</tr>';
+    var rows = [], cur = full.slice(), lvl = 0, ended = false;
+    rows.push(rowHtml('Deret', 0, full, 'x', derived));
+    while (lvl < 3) {
+      var nx = diffs(cur);
+      if (nx.length < 1) break;
+      lvl++;
+      rows.push(rowHtml('Selisih ' + lvl, lvl, nx, 'd', derived));
+      if (nx.length >= 2 && allEq(nx)) { ended = true; break; }
+      cur = nx;
+    }
+    if (!ended && full.every(function (v) { return !eq(v, 0); })) {
+      var q = full.slice(1).map(function (v, i) { return v / full[i]; });
+      rows.push(rowHtml('Rasio (×)', 1, q, 'd', derived));
+    }
+    return '<div class="scroll"><table><caption class="sr" style="display:none">Tabel selisih</caption><thead>' + head + '</thead><tbody>' + rows.join('') + '</tbody></table></div>';
+  }
+  function rowHtml(label, lvl, vals, kind, derived) {
+    var h = '<tr><th scope="row">' + label + '</th>';
+    for (var e = 0; e < lvl; e++) h += '<td class="e"></td>';
+    vals.forEach(function (v, i) {
+      var cls = derived(i, lvl) ? 'p' : (kind === 'd' ? 'd' : '');
+      h += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + fmt(v) + '</td>';
+    });
+    return h + '</tr>';
+  }
+  function stepsHtml(steps) { return '<ol class="steps">' + steps.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ol>'; }
+
+  /* ---------- deret huruf (A = 1 ... Z = 26, alfabet berputar) ---------- */
+  var ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  var md = function (n) { return ((n % 26) + 26) % 26; };
+  var LET = function (n) { return ABC.charAt(md(n)); };
+  var sd = function (d) { d = md(d); return d <= 13 ? d : d - 26; };
+  var stepTxt = function (d) { var v = sd(d); return v === 0 ? '0' : (v > 0 ? '+' + v : '−' + (-v)); };
+  var lnums = function (a) { return a.map(function (v) { return v + 1; }).join(', '); };
+  var llist = function (a) { return a.map(function (v) { return LET(v); }).join(', '); };
+  var mdiffs = function (a) { return a.slice(1).map(function (v, i) { return md(v - a[i]); }); };
+  var allEqM = function (a) { return a.every(function (v) { return v === a[0]; }); };
+  var move = function (st) { return (st > 0 ? 'maju ' : 'mundur ') + Math.abs(st) + ' huruf'; };
+  var NUMSTEP = 'Ubah huruf ke nomor urut alfabet (A = 1 … Z = 26): ';
+
+  function lArith(s) {
+    if (s.length < 3) return null;
+    var d = mdiffs(s);
+    if (!allEqM(d)) return null;
+    var st = sd(d[0]), last = s[s.length - 1];
+    if (st === 0) {
+      return {
+        name: 'Huruf berulang', short: 'tetap', rule: 'Huruf selalu ' + LET(last),
+        steps: ['Semua suku berisi huruf yang sama, yaitu ' + LET(last) + '.', 'Huruf berikutnya tetap ' + LET(last) + '.'],
+        ext: function (k) { var o = []; for (var i = 0; i < k; i++) o.push(last); return o; }
+      };
+    }
+    var wraps = last + st < 0 || last + st > 25 || s.some(function (v, i) { return i > 0 && (st > 0 ? v < s[i - 1] : v > s[i - 1]); });
+    var steps = [NUMSTEP + lnums(s) + '.', 'Selisih antar huruf: ' + d.map(stepTxt).join(', ') + '.',
+      'Selisihnya selalu ' + stepTxt(d[0]) + ', jadi tiap huruf ' + move(st) + '.'];
+    if (wraps) steps.push('Setelah Z hitungan kembali ke A, dan sebelum A kembali ke Z.');
+    steps.push('Huruf berikutnya: ' + LET(last) + ' ' + stepTxt(st) + ' = ' + LET(last + st) + '.');
+    return {
+      name: 'Loncat huruf dengan langkah tetap', short: stepTxt(st), rule: 'Huruf berikutnya = huruf sebelumnya ' + stepTxt(st),
+      steps: steps,
+      ext: function (k) { var o = []; for (var i = 1; i <= k; i++) o.push(md(last + st * i)); return o; }
+    };
+  }
+  function lPoly(order) {
+    return function (s) {
+      if (s.length < order + 2) return null;
+      var L = [s];
+      for (var i = 0; i < order; i++) L.push(mdiffs(L[i]));
+      var top = L[order];
+      if (top.length < 2 || !allEqM(top) || top[0] === 0) return null;
+      var c = top[0], steps = [NUMSTEP + lnums(s) + '.'];
+      for (var j = 1; j <= order; j++) steps.push('Selisih tingkat ' + j + ': ' + L[j].map(stepTxt).join(', ') + '.');
+      steps.push('Selisih tingkat ' + order + ' selalu ' + stepTxt(c) + (order === 2 ? ', jadi loncatan huruf ' + (sd(c) > 0 ? 'bertambah ' : 'berkurang ') + Math.abs(sd(c)) + ' tiap langkah.' : '.'));
+      if (order === 2) {
+        var nd = md(L[1][L[1].length - 1] + c), last = s[s.length - 1];
+        steps.push('Loncatan berikutnya ' + stepTxt(nd) + ', maka ' + LET(last) + ' ' + stepTxt(nd) + ' = ' + LET(last + nd) + '.');
+      }
+      return {
+        name: 'Loncatan huruf berubah teratur', short: 'loncatan berubah',
+        rule: 'Selisih tingkat ' + order + ' = ' + stepTxt(c), steps: steps,
+        ext: function (k) {
+          var M = L.map(function (l) { return l.slice(); }), out = [];
+          for (var t = 0; t < k; t++) {
+            M[order].push(c);
+            for (var q = order - 1; q >= 0; q--) M[q].push(md(M[q][M[q].length - 1] + M[q + 1][M[q + 1].length - 1]));
+            out.push(M[0][M[0].length - 1]);
+          }
+          return out;
+        }
+      };
+    };
+  }
+  function mkList(title, chars) {
+    var m = chars.length;
+    return function (s) {
+      if (s.length < 3) return null;
+      var ix = s.map(function (v) { return chars.indexOf(ABC.charAt(v)); });
+      if (ix.some(function (v) { return v < 0; })) return null;
+      var d = ix.slice(1).map(function (v, i) { return ((v - ix[i]) % m + m) % m; });
+      if (!allEqM(d) || (d[0] !== 1 && d[0] !== m - 1)) return null;
+      var st = d[0] === 1 ? 1 : -1, last = ix[ix.length - 1], all = chars.split('').join(', ');
+      return {
+        name: 'Hanya huruf ' + title, short: title, rule: 'Urutan ' + title + ': ' + chars.split('').join(' '),
+        steps: ['Semua suku adalah huruf ' + title + '. Daftar huruf ' + title + ': ' + all + '.',
+          'Tiap huruf ' + (st > 0 ? 'maju' : 'mundur') + ' satu langkah dalam daftar itu, dan setelah ujung daftar kembali ke awal.',
+          'Huruf berikutnya: ' + chars.charAt(((last + st) % m + m) % m) + '.'],
+        ext: function (k) { var o = []; for (var i = 1; i <= k; i++) o.push(ABC.indexOf(chars.charAt(((last + st * i) % m + m) % m))); return o; }
+      };
+    };
+  }
+  function lPeriodic(s) {
+    var n = s.length;
+    for (var p = 2; p <= n - 2; p++) {
+      var ok = true;
+      for (var i = p; i < n && ok; i++) if (s[i] !== s[i - p]) ok = false;
+      if (!ok) continue;
+      var cyc = s.slice(0, p);
+      if (allEqM(cyc)) return null;
+      var cs = cyc.map(function (v) { return LET(v); }).join('');
+      return {
+        name: 'Pola berulang', short: 'berulang', rule: 'Urutan ' + cs + ' berulang',
+        steps: ['Urutan huruf ' + llist(cyc) + ' berulang terus (panjang ' + p + ').', 'Huruf berikutnya: ' + LET(cyc[n % p]) + '.'],
+        ext: function (k) { var o = []; for (var j = 0; j < k; j++) o.push(cyc[(n + j) % p]); return o; }
+      };
+    }
+    return null;
+  }
+  function lAlt(s) {
+    if (s.length < 5) return null;
+    var d = mdiffs(s), a = d[0], b = d[1];
+    if (a === b) return null;
+    for (var i = 0; i < d.length; i++) if (d[i] !== (i % 2 === 0 ? a : b)) return null;
+    var n = s.length, last = s[n - 1];
+    return {
+      name: 'Dua loncatan bergantian', short: 'bergantian',
+      rule: stepTxt(a) + ' lalu ' + stepTxt(b) + ', diulang',
+      steps: ['Selisih antar huruf: ' + d.map(stepTxt).join(', ') + '.', 'Dua loncatan ' + stepTxt(a) + ' dan ' + stepTxt(b) + ' dipakai bergantian.'],
+      ext: function (k) { var o = [], v = last; for (var j = 0; j < k; j++) { v = md(v + ((n - 1 + j) % 2 === 0 ? a : b)); o.push(v); } return o; }
+    };
+  }
+  function lInter(s) {
+    if (s.length < 5) return null;
+    var A = s.filter(function (_, i) { return i % 2 === 0; }), B = s.filter(function (_, i) { return i % 2 === 1; });
+    var da = mdiffs(A), db = mdiffs(B);
+    if (!allEqM(da) || !allEqM(db)) return null;
+    var n = s.length;
+    return {
+      name: 'Dua deret huruf bersilang', short: 'bersilang',
+      rule: 'Urutan ganjil ' + stepTxt(da[0]) + ', urutan genap ' + stepTxt(db[0]),
+      steps: ['Suku urutan 1, 3, 5, …: ' + llist(A) + ' → loncat ' + stepTxt(da[0]) + '.',
+        'Suku urutan 2, 4, 6, …: ' + llist(B) + ' → loncat ' + stepTxt(db[0]) + '.', 'Lanjutkan masing-masing deret, lalu selang-seling.'],
+      ext: function (k) {
+        var o = [];
+        for (var j = 0; j < k; j++) { var i = n + j; o.push(i % 2 === 0 ? md(A[0] + da[0] * (i >> 1)) : md(B[0] + db[0] * ((i - 1) >> 1))); }
+        return o;
+      }
+    };
+  }
+  var LDET = [mkList('vokal', 'AEIOU'), lArith, lPoly(2), lPoly(3), mkList('konsonan', 'BCDFGHJKLMNPQRSTVWXYZ'), lPeriodic, lAlt, lInter];
+  function analyzeL(s) {
+    var out = [];
+    LDET.forEach(function (f, p) { var r = f(s); if (r) { r.pri = p; out.push(r); } });
+    return out;
+  }
+  function firstMatchL(s) {
+    for (var p = 0; p < LDET.length; p++) { var r = LDET[p](s); if (r) { r.pri = p; return r; } }
+    return null;
+  }
+  function solveColMissing(col, pos) {
+    var seq = col.slice(), found = [];
+    for (var x = 0; x < 26; x++) { seq[pos] = x; var r = firstMatchL(seq); if (r) found.push({ x: x, res: r }); }
+    found.sort(function (a, b) { return a.res.pri - b.res.pri || a.x - b.x; });
+    return found;
+  }
+
+  function isLetterInput(raw) {
+    return raw.split(/[\s,;]+/).some(function (t) { return /[A-Za-z]/.test(t) && !/^[xX]$/.test(t); });
+  }
+  function parseLetters(raw) {
+    var toks = /[\s,;]/.test(raw) ? raw.split(/[\s,;]+/).filter(Boolean) : (/^[A-Za-z?_]+$/.test(raw) ? raw.split('') : null);
+    if (!toks) return { error: 'Hanya huruf dan satu tanda ? yang bisa dibaca.' };
+    var L = 0, terms = [], unk = 0, pos = -1;
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i];
+      if (/^[?_]$/.test(t)) { unk++; pos = i; terms.push(null); }
+      else if (/^[A-Za-z]+$/.test(t)) {
+        t = t.toUpperCase();
+        if (L && t.length !== L) return { error: 'Semua suku harus sama panjang, misalnya AB, CD, EF.' };
+        L = t.length; terms.push(t);
+      }
+      else return { error: 'Hanya huruf dan satu tanda ? yang bisa dibaca. Periksa bagian "' + t.replace(/[<>&"]/g, '') + '".' };
+    }
+    if (!L) return { error: 'Masukkan minimal 3 suku.' };
+    if (L > 6) return { error: 'Satu suku maksimal 6 huruf.' };
+    if (unk > 1) return { error: 'Pakai satu tanda ? saja.' };
+    if (terms.length < 3) return { error: 'Masukkan minimal 3 suku.' };
+    if (unk === 0) return { L: L, terms: terms, mode: 'next' };
+    if (pos === terms.length - 1) {
+      var known = terms.slice(0, -1);
+      if (known.length < 3) return { error: 'Untuk mencari suku berikutnya, tulis minimal 3 suku sebelum ?.' };
+      return { L: L, terms: known, mode: 'next' };
+    }
+    return { L: L, terms: terms, mode: 'missing', pos: pos };
+  }
+
+  function colOf(terms, c) { return terms.map(function (t) { return t === null ? null : ABC.indexOf(t.charAt(c)); }); }
+  function rowS(label, lvl, cells, kind, der) {
+    var h = '<tr><th scope="row">' + label + '</th>';
+    for (var e = 0; e < lvl; e++) h += '<td class="e"></td>';
+    cells.forEach(function (v, i) {
+      var cls = der(i, lvl) ? 'p' : (kind === 'd' ? 'd' : '');
+      h += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</td>';
+    });
+    return h + '</tr>';
+  }
+  function ltable(full, nKnown, unkPos) {
+    var der = function (i, j) { for (var t = i; t <= i + j; t++) if (t >= nKnown || t === unkPos) return true; return false; };
+    var head = '<tr><th scope="col"></th>' + full.map(function (_, i) { return '<th scope="col">' + (i + 1) + '</th>'; }).join('') + '</tr>';
+    var rows = [rowS('Huruf', 0, full.map(function (v) { return LET(v); }), 'x', der), rowS('Nomor', 0, full.map(function (v) { return String(v + 1); }), 'x', der)];
+    var cur = full.slice(), lvl = 0;
+    while (lvl < 3) {
+      var nx = mdiffs(cur);
+      if (nx.length < 1) break;
+      lvl++;
+      rows.push(rowS('Selisih ' + lvl, lvl, nx.map(stepTxt), 'd', der));
+      if (nx.length >= 2 && allEqM(nx)) break;
+      cur = nx;
+    }
+    return '<div class="scroll"><table><thead>' + head + '</thead><tbody>' + rows.join('') + '</tbody></table></div>';
+  }
+  function alphaStrip(hits) {
+    var h = '<div class="alpha" role="img" aria-label="Nomor urut alfabet, A sampai Z">';
+    for (var i = 0; i < 26; i++) h += '<span class="al' + (hits[i] ? ' hit' : '') + '"><b>' + ABC.charAt(i) + '</b><i>' + (i + 1) + '</i></span>';
+    return h + '</div>';
+  }
+  function ldetail(ress, fulls, nKnown, unkPos, L) {
+    if (L === 1) {
+      var r = ress[0];
+      return '<p class="rule"><strong>' + r.name + '.</strong> <code>' + r.rule + '</code></p><h2>Langkah</h2>' + stepsHtml(r.steps) +
+        '<h2>Tabel selisih</h2>' + ltable(fulls[0], nKnown, unkPos);
+    }
+    var h = '';
+    ress.forEach(function (r, ci) {
+      h += '<h2>Huruf ke-' + (ci + 1) + ' di tiap suku</h2><p class="rule"><strong>' + r.name + '.</strong> <code>' + r.rule + '</code></p>' +
+        stepsHtml(r.steps) + ltable(fulls[ci], nKnown, unkPos);
+    });
+    return h;
+  }
+  function altList(items, note) {
+    return '<section class="card"><p class="label">Kemungkinan lain</p><ul class="alts">' + items.map(function (a) {
+      return '<li><span class="v">' + a.v + '</span><span class="n">' + a.res.name + ': <span class="m">' + a.res.rule + '</span></span></li>';
+    }).join('') + '</ul><p class="note">' + note + '</p></section>';
+  }
+
+  function runLetters(p) {
+    var out = $('out'), L = p.L, k = state.k, c, h;
+    var none = '<div class="card"><p class="none">Pola belum ketemu. Coba tambah beberapa suku, atau cek lagi hurufnya. Pola yang rumit mungkin belum dikenali kalkulator ini.</p></div>';
+    var cols = [];
+    for (c = 0; c < L; c++) cols.push(colOf(p.terms, c));
+
+    if (p.mode === 'missing') {
+      var sols = [];
+      for (c = 0; c < L; c++) {
+        var f = solveColMissing(cols[c], p.pos);
+        if (!f.length) { out.innerHTML = none; return; }
+        sols.push(f);
+      }
+      var fulls = sols.map(function (f2, ci) { var a = cols[ci].slice(); a[p.pos] = f2[0].x; return a; });
+      var ans = fulls.map(function (a) { return LET(a[p.pos]); }).join('');
+      var shown = p.terms.map(function (t, i) { return i === p.pos ? '<b>' + ans + '</b>' : t; }).join(', ');
+      var hits = {};
+      fulls.forEach(function (a) { hits[a[p.pos]] = 1; });
+      h = '<section class="card"><p class="label">' + (L > 1 ? 'Suku yang hilang' : 'Huruf yang hilang') + '</p>' +
+        '<p class="answer"><span class="ans">' + ans + '</span></p><p class="filled">' + shown + '</p>' +
+        ldetail(sols.map(function (f2) { return f2[0].res; }), fulls, p.terms.length, p.pos, L) +
+        '<h2>Nomor urut alfabet</h2>' + alphaStrip(hits) + '</section>';
+      if (L === 1 && sols[0].length > 1) {
+        h += altList(sols[0].slice(1, 5).map(function (a) { return { v: LET(a.x), res: a.res }; }),
+          'Dengan satu huruf hilang, kadang lebih dari satu pola yang cocok. Pilihan paling atas memakai pola yang paling umum di soal deret huruf.');
+      }
+      out.innerHTML = h;
+      return;
+    }
+
+    var picks = [], groups1 = null;
+    for (c = 0; c < L; c++) {
+      var groups = [], byKey = {};
+      analyzeL(cols[c]).forEach(function (r) {
+        var e = r.ext(k), key = e.join('|');
+        if (!byKey[key]) { byKey[key] = { res: r, ext: e, names: [] }; groups.push(byKey[key]); }
+        else byKey[key].names.push(r.name);
+      });
+      if (!groups.length) { out.innerHTML = none; return; }
+      picks.push(groups[0]);
+      if (L === 1) groups1 = groups;
+    }
+    var terms = [], hits2 = {}, j;
+    for (j = 0; j < k; j++) terms.push(picks.map(function (g) { return LET(g.ext[j]); }).join(''));
+    picks.forEach(function (g) { g.ext.forEach(function (v) { hits2[v] = 1; }); });
+    var fulls2 = picks.map(function (g, ci) { return cols[ci].concat(g.ext); });
+    h = '<section class="card"><p class="label">Jawaban</p><p class="answer"><span class="ans">' + terms[0] + '</span>' +
+      (terms.length > 1 ? ' <span class="more">lalu ' + terms.slice(1).join(', ') + '</span>' : '') + '</p>' +
+      (L === 1 && picks[0].names.length ? '<p class="also">Cocok juga dengan: ' + picks[0].names.join(', ') + '.</p>' : '') +
+      ldetail(picks.map(function (g) { return g.res; }), fulls2, cols[0].length, -1, L) +
+      '<h2>Nomor urut alfabet</h2>' + alphaStrip(hits2) + '</section>';
+    if (L === 1 && groups1.length > 1) {
+      h += altList(groups1.slice(1, 5).map(function (g) { return { v: LET(g.ext[0]), res: g.res }; }),
+        'Lebih dari satu pola cocok dengan ' + cols[0].length + ' huruf ini. Tambah suku untuk memastikan, atau pilih pola yang paling masuk akal untuk soalnya.');
+    }
+    out.innerHTML = h;
+  }
+
+  var state = { k: 3, mode: 'num' };
+
+  function run() {
+    var raw = $('seq').value.trim(), isL = raw ? isLetterInput(raw) : state.mode === 'let';
+    if (isL !== (state.mode === 'let')) setMode(isL ? 'let' : 'num', false);
+    var out = $('out'), p = isL ? parseLetters(raw) : parse(raw);
+    if (p.error) { out.innerHTML = '<div class="card"><p class="err" role="alert">' + p.error + '</p></div>'; return; }
+    var none = '<div class="card"><p class="none">Pola belum ketemu. Coba tambah beberapa suku, atau cek lagi angkanya. Pola yang rumit mungkin belum dikenali kalkulator ini.</p></div>';
+    if (isL) { runLetters(p); return; }
+
+    if (p.mode === 'missing') {
+      var found = solveMissing(p.s, p.pos);
+      if (!found.length) { out.innerHTML = none; return; }
+      var main = found[0], full = p.s.slice(); full[p.pos] = main.x;
+      var alts = found.slice(1, 5);
+      var filled = full.map(function (v, i) { return i === p.pos ? '<b>' + fmt(v) + '</b>' : fmt(v); }).join(', ');
+      var h = '<section class="card"><p class="label">Angka yang hilang</p><p class="answer"><span class="ans">' + fmt(main.x) + '</span></p>' +
+        '<p class="filled">' + filled + '</p>' +
+        '<p class="rule"><strong>' + main.res.name + '.</strong> <code>' + main.res.rule + '</code></p>' +
+        '<h2>Langkah</h2>' + stepsHtml(main.res.steps) +
+        '<h2>Tabel selisih</h2>' + table(full, full.length, p.pos) + '</section>';
+      if (alts.length) {
+        h += '<section class="card"><p class="label">Kemungkinan lain</p><ul class="alts">' + alts.map(function (a) {
+          return '<li><span class="v">' + fmt(a.x) + '</span><span class="n">' + a.res.name + ': <span class="m">' + a.res.rule + '</span></span></li>';
+        }).join('') + '</ul><p class="note">Dengan satu angka hilang, kadang lebih dari satu pola yang cocok. Pilihan paling atas memakai pola yang paling umum di soal deret angka.</p></section>';
+      }
+      out.innerHTML = h;
+      return;
+    }
+
+    var k = state.k, all = analyze(p.s), groups = [], byKey = {};
+    all.forEach(function (r) {
+      var e = r.ext(k);
+      if (e.length < k || e.some(function (v) { return v === undefined || !isFinite(v) || Math.abs(v) > 1e15; })) return;
+      var key = e.map(fmt).join('|');
+      if (!byKey[key]) { byKey[key] = { res: r, ext: e, names: [] }; groups.push(byKey[key]); }
+      else byKey[key].names.push(r.name);
+    });
+    if (!groups.length) { out.innerHTML = none; return; }
+    var g = groups[0], res = g.res, full2 = p.s.concat(g.ext);
+    var rest = g.ext.slice(1);
+    var h2 = '<section class="card"><p class="label">Jawaban</p><p class="answer"><span class="ans">' + fmt(g.ext[0]) + '</span>' +
+      (rest.length ? ' <span class="more">lalu ' + list(rest) + '</span>' : '') + '</p>' +
+      '<p class="rule"><strong>' + res.name + '.</strong> <code>' + res.rule + '</code></p>' +
+      (g.names.length ? '<p class="also">Cocok juga dengan: ' + g.names.join(', ') + '.</p>' : '') +
+      '<h2>Langkah</h2>' + stepsHtml(res.steps) +
+      '<h2>Tabel selisih</h2>' + table(full2, p.s.length, -1) + '</section>';
+    var alts2 = groups.slice(1, 5);
+    if (alts2.length) {
+      h2 += '<section class="card"><p class="label">Kemungkinan lain</p><ul class="alts">' + alts2.map(function (a) {
+        return '<li><span class="v">' + fmt(a.ext[0]) + '</span><span class="n">' + a.res.name + ': <span class="m">' + a.res.rule + '</span></span></li>';
+      }).join('') + '</ul><p class="note">Lebih dari satu pola cocok dengan ' + p.s.length + ' angka ini. Tambah suku untuk memastikan, atau pilih pola yang paling masuk akal untuk soalnya.</p></section>';
+    }
+    out.innerHTML = h2;
+  }
+
+  /* ---------- kontrol ---------- */
+  var examples = ['2, 6, 12, 20, 30, ?', '3, 6, 12, 24, ?', '1, 4, 9, 16, ?', '2, 3, 5, 8, 13, ?', '1, 2, 4, 7, ?, 16', '5, 10, 8, 16, 14, ?', '2, 5, 11, 23, ?', '2, 3, 5, 7, 11, ?', '1, 2, 6, 24, ?', '3, 5, 9, ?, 33', '1, 5, 2, 10, 3, 15, ?'];
+  var exLetters = ['A, C, E, G, ?', 'Z, X, V, T, ?', 'X, Z, B, D, ?', 'A, B, D, G, K, ?', 'A, Z, B, Y, C, X, ?', 'A, C, D, F, G, ?', 'B, D, ?, H, J', 'A, E, I, O, ?', 'A, B, C, A, B, C, A, ?', 'AB, CD, EF, GH, ?', 'ABC, BCD, CDE, ?'];
+  var hints = {
+    num: 'Pisahkan dengan koma atau spasi. Tulis <code>?</code> untuk angka yang dicari, di tengah atau di akhir.',
+    let: 'Pisahkan dengan koma atau spasi, atau tulis rapat seperti <code>ACEG?</code>. Tulis <code>?</code> untuk huruf yang dicari. Satu suku boleh berisi beberapa huruf, misalnya <code>AB, CD, EF, ?</code>.'
+  };
+  function setMode(m, fill) {
+    state.mode = m;
+    Array.prototype.forEach.call($('mseg').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-m') === m ? 'true' : 'false'); });
+    var ex = m === 'let' ? exLetters : examples;
+    $('chips').innerHTML = ex.map(function (e) { return '<button type="button" class="chip">' + e + '</button>'; }).join('');
+    $('hint').innerHTML = hints[m];
+    if (fill) $('seq').value = ex[0];
+  }
+  $('mseg').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    setMode(b.getAttribute('data-m'), true);
+    run();
+  });
+  setMode('num', false);
+  $('chips').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.chip');
+    if (!b) return;
+    $('seq').value = b.textContent;
+    run();
+  });
+  $('kseg').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    state.k = Number(b.getAttribute('data-k'));
+    Array.prototype.forEach.call($('kseg').children, function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    run();
+  });
+  $('form').addEventListener('submit', function (ev) { ev.preventDefault(); run(); });
+  run();
+})();
+</script>
