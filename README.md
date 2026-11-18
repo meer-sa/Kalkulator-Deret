@@ -30,6 +30,7 @@ Satu file HTML (`kalkulator-deret.html`) untuk mengerjakan soal deret angka dan 
 | Bilangan kuadrat dan kubik (pokoknya boleh aritmetika, geometri, atau prima) | `1, 4, 9, 16, ?` | 25 |
 | Selisih bertingkat (selisih tingkat 2 atau 3 yang tetap) | `2, 6, 12, 20, 30, ?` | 42 |
 | Selisih membentuk deret geometri | `3, 5, 9, 17, ?` | 33 |
+| Selisih berpola khusus (kuadrat, Fibonacci, prima) | `1, 5, 14, 30, ?` | 55 |
 | Pengali naik teratur | `1, 2, 6, 24, ?` | 120 |
 | Fibonacci (jumlah dua suku sebelumnya) | `2, 3, 5, 8, 13, ?` | 21 |
 | Jumlah tiga suku sebelumnya | `1, 2, 4, 7, 13, 24, ?` | 44 |
@@ -38,6 +39,13 @@ Satu file HTML (`kalkulator-deret.html`) untuk mengerjakan soal deret angka dan 
 | Dua operasi bergantian | `5, 10, 8, 16, 14, ?` | 28 |
 | Dua deret bersilang (suku ganjil dan genap punya pola sendiri) | `1, 5, 2, 10, 3, 15, ?` | 4 |
 | Angka tetap | `7, 7, 7, ?` | 7 |
+
+Dua pola berikut hanya muncul kalau tidak ada pola yang lebih kuat. Keduanya lemah karena hanya didukung 4 suku, jadi anggap sebagai kemungkinan, bukan kepastian:
+
+| Pola | Contoh | Jawaban |
+|---|---|---|
+| Selisih tingkat 2 berlipat (selisih tingkat 2 dikali 2 atau 3) | `5, 8, 13, 22, ?` | 39 |
+| Pola dimulai dari suku ke-2 (suku pertama menyimpang) | `10, 21, 42, 84, ?` | 168 |
 
 ## Deret huruf: pola yang dikenali
 
@@ -76,7 +84,9 @@ Cara menulis deret huruf:
 - Soal campuran huruf dan angka (misalnya `A1, B2, C3`) belum didukung.
 - Pola yang tidak ada di daftar di atas dijawab "Pola belum ketemu". Menambah beberapa suku sering membantu.
 - Dengan suku yang sedikit, beberapa pola bisa cocok sekaligus. Cek bagian **Kemungkinan lain** dan pilih yang paling masuk akal untuk soalnya.
-- Jumlah suku minimum bervariasi per pola. Selisih bertingkat tingkat 2 butuh 4 suku, tingkat 3 butuh 5 suku, dua deret bersilang butuh 5 sampai 6 suku.
+- Jumlah suku minimum bervariasi per pola. Deret angka: selisih bertingkat tingkat 2 butuh 4 suku, tingkat 3 butuh 5 suku, dua operasi bergantian butuh 4 suku, dua deret bersilang butuh 6 suku. Deret huruf: loncatan berubah teratur butuh 4 suku, dua loncatan bergantian dan dua deret bersilang butuh 5 suku.
+- Dengan hanya 3 suku, banyak soal punya lebih dari satu jawaban masuk akal. Kalkulator menampilkan pola selisih bertingkat sebagai "belum terkonfirmasi" di bagian Kemungkinan lain (misalnya `1, 2, 4, ?` bisa 8 atau 7).
+- Kalau tidak ada pola yang cocok, kalkulator menjawab "Pola belum ketemu" dan tidak menebak.
 - Untuk angka yang hilang di tengah, kalkulator mencoba bilangan bulat dalam rentang sekitar 50 kali angka terbesar di deret. Jawaban desimal tidak dicari.
 - Hasil angka di atas 10^15 tidak ditampilkan.
 - Untuk deret huruf dengan beberapa huruf per suku, kemungkinan pola lain tidak ditampilkan.
@@ -86,4 +96,3 @@ Cara menulis deret huruf:
 - Satu file HTML, tanpa framework dan tanpa library. Perhitungan berjalan di browser.
 - Font dimuat dari Google Fonts. Kalau offline, tampilan memakai font bawaan sistem dan hitungan tetap jalan.
 - Tema terang dan gelap mengikuti pengaturan perangkat.
-- 
