@@ -326,20 +326,28 @@ ul.alts .n { color: var(--muted); font-size: 0.92rem; min-width: 0; }
     };
   }
   function dAlt(s) {
-    if (s.length < 5) return null;
-    var ops = [];
-    for (var c = 0; c < 2; c++) {
-      var idx = [];
-      for (var i = c; i < s.length - 1; i += 2) idx.push(i);
-      if (idx.length < 2) return null;
+    if (s.length < 4) return null;
+    var n = s.length, cls = [[], []], ops = [null, null], c;
+    for (var i0 = 0; i0 < n - 1; i0++) cls[i0 % 2].push(i0);
+    /* Kelas dengan 2 loncatan atau lebih menentukan operasinya sendiri. */
+    for (c = 0; c < 2; c++) {
+      var idx = cls[c];
+      if (idx.length < 2) continue;
       var dd = idx.map(function (i) { return s[i + 1] - s[i]; });
-      if (allEq(dd)) { ops.push({ t: '+', v: dd[0] }); continue; }
+      if (allEq(dd)) { ops[c] = { t: '+', v: dd[0] }; continue; }
       if (idx.some(function (i) { return eq(s[i], 0); })) return null;
       var rr = idx.map(function (i) { return s[i + 1] / s[i]; });
-      if (allEq(rr) && !eq(rr[0], 1)) ops.push({ t: '*', v: rr[0] }); else return null;
+      if (allEq(rr) && !eq(rr[0], 1)) ops[c] = { t: '*', v: rr[0] }; else return null;
+    }
+    if (!ops[0] && !ops[1]) return null;
+    /* Kelas dengan satu loncatan (deret 4 suku) memakai jenis operasi yang sama dengan kelas lain. */
+    for (c = 0; c < 2; c++) {
+      if (ops[c]) continue;
+      var o = ops[1 - c], j = cls[c][0];
+      if (o.t === '+') ops[c] = { t: '+', v: s[j + 1] - s[j] };
+      else { if (eq(s[j], 0)) return null; ops[c] = { t: '*', v: s[j + 1] / s[j] }; }
     }
     if (ops[0].t === ops[1].t && eq(ops[0].v, ops[1].v)) return null;
-    var n = s.length;
     return {
       name: 'Dua operasi bergantian', short: 'operasi bergantian',
       rule: opText(ops[0].t, ops[0].v) + ' lalu ' + opText(ops[1].t, ops[1].v) + ', diulang',
@@ -399,13 +407,62 @@ ul.alts .n { color: var(--muted); font-size: 0.92rem; min-width: 0; }
     }
     return null;
   }
-  var DET = [dArith, dGeom, dPowers, polyTwo, dPoly(3), dDiffGeom, dRatioArith, dFib, dTrib, mkPrimes(4), dLinRec, dAlt, dInter];
+  /* Selisih antar suku berpola khusus, misalnya bilangan kuadrat: 1, 5, 14, 30 (selisih 4, 9, 16). */
+  var diffSubs = [dPowers, dFib, mkPrimes(4)];
+  function dDiffPat(s) {
+    if (s.length < 4) return null;
+    var d = diffs(s), sub = null;
+    for (var i = 0; i < diffSubs.length && !sub; i++) sub = diffSubs[i](d);
+    if (!sub) return null;
+    var last = s[s.length - 1], nd = sub.ext(1)[0];
+    return {
+      name: 'Selisih berpola: ' + sub.name.toLowerCase(), short: 'selisih berpola',
+      rule: 'Selisih antar suku mengikuti pola ' + sub.name.toLowerCase(),
+      steps: ['Selisih antar suku: ' + d.map(sgn).join(', ') + '.', 'Selisihnya sendiri berpola: ' + sub.name.toLowerCase() + '.',
+        'Selisih berikutnya ' + fmt(nd) + ', maka ' + fmt(last) + ' + ' + fmt(nd) + ' = ' + fmt(last + nd) + '.'],
+      ext: function (k) { var o = [], v = last; sub.ext(k).forEach(function (x) { v += x; o.push(v); }); return o; }
+    };
+  }
+  /* Selisih tingkat 2 berlipat 2 atau 3 kali: 5, 8, 13, 22 (selisih 3, 5, 9; lalu 2, 4). Lemah di 4 suku, jadi hanya kemungkinan tambahan. */
+  function dPoly2Geom(s) {
+    if (s.length < 4) return null;
+    var d1 = diffs(s), d2 = diffs(d1);
+    if (d2.some(function (v) { return v <= 0 || !isInt(v); })) return null;
+    var r = d2[1] / d2[0];
+    if (!isInt(r) || r < 2 || r > 3) return null;
+    for (var i = 0; i < d2.length - 1; i++) if (!eq(d2[i + 1], d2[i] * r)) return null;
+    var last = s[s.length - 1], l1 = d1[d1.length - 1], l2 = d2[d2.length - 1];
+    return {
+      name: 'Selisih tingkat 2 membentuk deret geometri', short: 'selisih tingkat 2 berlipat',
+      rule: 'Selisih tingkat 2 ' + opText('*', r) + ' tiap langkah',
+      steps: ['Selisih tingkat 1: ' + d1.map(sgn).join(', ') + '.', 'Selisih tingkat 2: ' + d2.map(fmt).join(', ') + ', tiap langkah ' + opText('*', r) + '.',
+        'Selisih tingkat 2 berikutnya ' + fmt(l2 * r) + ', jadi selisih berikutnya ' + fmt(l1 + l2 * r) + ', maka ' + fmt(last) + ' + ' + fmt(l1 + l2 * r) + ' = ' + fmt(last + l1 + l2 * r) + '.'],
+      ext: function (k) { var o = [], v = last, a = l1, b = l2; for (var i = 0; i < k; i++) { b *= r; a += b; v += a; o.push(v); } return o; }
+    };
+  }
+  /* Pola yang hanya berlaku mulai suku ke-2. Dipakai sebagai kemungkinan lemah, tidak untuk mencari suku hilang. */
+  function dTail(s) {
+    if (s.length < 4 || dArith(s) || dGeom(s)) return null;
+    var t = s.slice(1), r = dArith(t) || dGeom(t);
+    if (!r) return null;
+    return {
+      name: 'Pola dimulai dari suku ke-2 (suku pertama menyimpang)', short: 'mulai suku ke-2', rule: r.rule,
+      steps: ['Suku pertama tidak ikut pola. Suku ke-2 dan seterusnya (' + list(t) + ') mengikuti satu pola: ' + r.name.toLowerCase() + '.', r.steps[r.steps.length - 1]],
+      ext: r.ext
+    };
+  }
+  var DET = [dArith, dGeom, dPowers, polyTwo, dPoly(3), dDiffGeom, dRatioArith, dFib, dTrib, mkPrimes(4), dDiffPat, dLinRec, dAlt, dInter];
+  var WEAK = [dTail, dPoly2Geom];
 
   function analyze(s) {
-    var out = [];
-    for (var p = 0; p < DET.length; p++) {
+    var out = [], p;
+    for (p = 0; p < DET.length; p++) {
       var r = DET[p](s);
       if (r) { r.pri = p; out.push(r); }
+    }
+    for (var w = 0; w < WEAK.length; w++) {
+      var rw = WEAK[w](s);
+      if (rw) { rw.pri = DET.length + w; out.push(rw); }
     }
     return out;
   }
@@ -749,6 +806,14 @@ ul.alts .n { color: var(--muted); font-size: 0.92rem; min-width: 0; }
         else byKey[key].names.push(r.name);
       });
       if (!groups.length) { out.innerHTML = none; return; }
+      if (cols[c].length === 3) {
+        var dl = mdiffs(cols[c]), cl = md(dl[1] - dl[0]);
+        if (cl !== 0) {
+          var vl = cols[c][2], ldl = dl[1], el = [];
+          for (var il = 0; il < k; il++) { ldl = md(ldl + cl); vl = md(vl + ldl); el.push(vl); }
+          if (!byKey[el.join('|')]) groups.push({ res: { name: 'Loncatan huruf berubah teratur (belum terkonfirmasi)', rule: 'Selisih tingkat 2 = ' + stepTxt(cl) }, ext: el, names: [] });
+        }
+      }
       picks.push(groups[0]);
       if (L === 1) groups1 = groups;
     }
@@ -807,6 +872,15 @@ ul.alts .n { color: var(--muted); font-size: 0.92rem; min-width: 0; }
       else byKey[key].names.push(r.name);
     });
     if (!groups.length) { out.innerHTML = none; return; }
+    if (p.s.length === 3) {
+      /* Dengan 3 suku, pola selisih bertingkat belum bisa dikonfirmasi, tapi tetap mungkin. Tampilkan sebagai kemungkinan lain. */
+      var d3 = diffs(p.s), c3 = d3[1] - d3[0];
+      if (!eq(c3, 0)) {
+        var v3 = p.s[2], ld3 = d3[1], e3 = [];
+        for (var i3 = 0; i3 < k; i3++) { ld3 += c3; v3 += ld3; e3.push(v3); }
+        if (!byKey[e3.map(fmt).join('|')]) groups.push({ res: { name: 'Selisih bertingkat (belum terkonfirmasi)', rule: 'Selisih tingkat 2 tetap = ' + fmt(c3) }, ext: e3, names: [] });
+      }
+    }
     var g = groups[0], res = g.res, full2 = p.s.concat(g.ext);
     var rest = g.ext.slice(1);
     var h2 = '<section class="card"><p class="label">Jawaban</p><p class="answer"><span class="ans">' + fmt(g.ext[0]) + '</span>' +
